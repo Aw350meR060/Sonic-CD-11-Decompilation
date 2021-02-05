@@ -1,4 +1,5 @@
 #include "RetroEngine.hpp"
+#include <stdlib.h>
 
 int collisionLeft   = 0;
 int collisionTop    = 0;
@@ -1009,6 +1010,7 @@ void ProcessPathGrip(Player *player)
         sensors[2].collided               = false;
         sensors[4].XPos += cosValue256;
         sensors[4].YPos += sinValue256;
+        int tileDistance = -1;
         switch (player->collisionMode) {
             case CMODE_FLOOR: {
                 sensors[3].XPos += cosValue256;
@@ -1031,7 +1033,7 @@ void ProcessPathGrip(Player *player)
                     FindFloorPosition(player, &sensors[i], sensors[i].YPos >> 16);
                 }
 
-                int tileDistance = -1;
+                tileDistance = -1;
                 for (int i = 0; i < 3; i++) {
                     if (tileDistance > -1) {
                         if (sensors[i].collided) {
@@ -1089,7 +1091,7 @@ void ProcessPathGrip(Player *player)
                     FindLWallPosition(player, &sensors[i], sensors[i].XPos >> 16);
                 }
                 
-                int tileDistance = -1;
+                tileDistance = -1;
                 for (int i = 0; i < 3; i++) {
                     if (tileDistance > -1) {
                         if (sensors[i].XPos < sensors[tileDistance].XPos && sensors[i].collided) {
@@ -1142,7 +1144,7 @@ void ProcessPathGrip(Player *player)
                     FindRoofPosition(player, &sensors[i], sensors[i].YPos >> 16);
                 }
                 
-                int tileDistance = -1;
+                tileDistance = -1;
                 for (int i = 0; i < 3; i++) {
                     if (tileDistance > -1) {
                         if (sensors[i].YPos > sensors[tileDistance].YPos && sensors[i].collided) {
@@ -1196,7 +1198,7 @@ void ProcessPathGrip(Player *player)
                     FindRWallPosition(player, &sensors[i], sensors[i].XPos >> 16);
                 }
                 
-                int tileDistance = -1;
+                tileDistance = -1;
                 for (int i = 0; i < 3; i++) {
                     if (tileDistance > -1) {
                         if (sensors[i].XPos > sensors[tileDistance].XPos && sensors[i].collided) {
@@ -1229,14 +1231,13 @@ void ProcessPathGrip(Player *player)
                 break;
             }
         }
-        if (absSpeed > -1)
+        if (tileDistance > -1)
             player->angle = sensors[0].angle;
 
         if (!sensors[3].collided)
             SetPathGripSensors(player);
         else
             checkDist = -2;
-
     }
 
     switch (player->collisionMode) {

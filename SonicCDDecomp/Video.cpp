@@ -1,21 +1,20 @@
 ﻿#include "RetroEngine.hpp"
 
 int currentVideoFrame = 0;
-int videoFrameCount = 0;
-int videoWidth  = 0;
+int videoFrameCount   = 0;
+int videoWidth        = 0;
 int videoHeight       = 0;
+float videoAR         = 0;
 
 THEORAPLAY_Decoder *videoDecoder;
 const THEORAPLAY_VideoFrame *videoVidData;
-const THEORAPLAY_AudioPacket *videoAudioData;
 THEORAPLAY_Io callbacks;
 
-byte videoData = 0;
-int videoFilePos = 0;
+byte videoData    = 0;
+int videoFilePos  = 0;
 bool videoPlaying = 0;
-int vidFrameMS = 0;
-int vidBaseticks = 0;
-
+int vidFrameMS    = 0;
+int vidBaseticks  = 0;
 
 bool videoSkipped = false;
 
@@ -34,9 +33,17 @@ static void videoClose(THEORAPLAY_Io *io)
     fClose(file);
 }
 
-void PlayVideoFile(char *filePath) { 
+void PlayVideoFile(char *filePath)
+{
     char filepath[0x100];
-    StrCopy(filepath, "videos/");
+    StrCopy(filepath, BASE_PATH "videos/");
+
+    int len = StrLength(filePath);
+
+    if (StrComp(filePath + ((size_t)len - 2), "us")) {
+        filePath[len - 2] = 0;
+    }
+
     StrAdd(filepath, filePath);
     StrAdd(filepath, ".ogv");
 
@@ -47,65 +54,46 @@ void PlayVideoFile(char *filePath) {
         callbacks.read     = videoRead;
         callbacks.close    = videoClose;
         callbacks.userdata = (void *)file;
-        videoDecoder       = THEORAPLAY_startDecode(&callbacks, /*FPS*/ 30, THEORAPLAY_VIDFMT_RGBA);
+#if RETRO_USING_SDL2
+        videoDecoder = THEORAPLAY_startDecode(&callbacks, /*FPS*/ 30, THEORAPLAY_VIDFMT_IYUV, GetGlobalVariableByName("Options.Soundtrack") ? 1 : 0);
+#endif
+
+        //TODO: does SDL1.2 support YUV?
+#if RETRO_USING_SDL1
+        videoDecoder = THEORAPLAY_startDecode(&callbacks, /*FPS*/ 30, THEORAPLAY_VIDFMT_RGBA, GetGlobalVariableByName("Options.Soundtrack") ? 1 : 0);
+#endif
+
 
         if (!videoDecoder) {
             printLog("Video Decoder Error!");
             return;
         }
-        while (!videoAudioData || !videoVidData) {
-            if (!videoAudioData)
-                videoAudioData = THEORAPLAY_getAudio(videoDecoder);
+        while (!videoVidData) {
             if (!videoVidData)
                 videoVidData = THEORAPLAY_getVideo(videoDecoder);
         }
-        if (!videoAudioData || !videoVidData) {
-            printLog("Video or Audio Error!");
+        if (!videoVidData) {
+            printLog("Video Error!");
             return;
         }
 
-        //clear audio data, we dont use it
-        while ((videoAudioData = THEORAPLAY_getAudio(videoDecoder)) != NULL) THEORAPLAY_freeAudio(videoAudioData);
-
         videoWidth  = videoVidData->width;
         videoHeight = videoVidData->height;
+        // commit video Aspect Ratio.
+        videoAR = float(videoWidth) / float(videoHeight);
+
         SetupVideoBuffer(videoWidth, videoHeight);
         vidBaseticks = SDL_GetTicks();
-        vidFrameMS     = (videoVidData->fps == 0.0) ? 0 : ((Uint32)(1000.0 / videoVidData->fps));
+        vidFrameMS   = (videoVidData->fps == 0.0) ? 0 : ((Uint32)(1000.0 / videoVidData->fps));
         videoPlaying = true;
-        trackID        = TRACK_COUNT - 1;
+        trackID      = TRACK_COUNT - 1;
 
-        // "temp" but I really cannot be bothered to go through the nightmare that is streaming the audio data
-        // (yes I tried, and probably cut years off my life)
-        StrCopy(filepath, "videos/");
-        StrAdd(filepath, filePath);
-        if (StrComp(filePath, "Good_Ending") || StrComp(filePath, "Bad_Ending") || StrComp(filePath, "Opening")) {
-            if (!GetGlobalVariableByName("Options.Soundtrack"))
-                StrAdd(filepath, "JP");
-            else
-                StrAdd(filepath, "US");
-        }
-        StrAdd(filepath, ".ogg");
-
-        TrackInfo *track = &musicTracks[trackID];
-        StrCopy(track->fileName, filepath);
-        track->trackLoop = false;
-        track->loopPoint = 0;
-
-        //Switch it off so the reader can access it
-        bool df              = Engine.usingDataFile;
-        Engine.usingDataFile = false;
-        PlayMusic(trackID);
-        Engine.usingDataFile = df;
-
-        videoSkipped = false;
-
+        videoSkipped    = false;
         Engine.gameMode = ENGINE_VIDEOWAIT;
     }
     else {
         printLog("Couldn't find file '%s'!", filepath);
     }
-    
 }
 
 void UpdateVideoFrame()
@@ -113,7 +101,7 @@ void UpdateVideoFrame()
     if (videoPlaying) {
         if (videoFrameCount > currentVideoFrame) {
             GFXSurface *surface = &gfxSurface[videoData];
-            int fileBuffer               = 0;
+            byte fileBuffer      = 0;
             FileRead(&fileBuffer, 1);
             videoFilePos += fileBuffer;
             FileRead(&fileBuffer, 1);
@@ -148,8 +136,7 @@ void UpdateVideoFrame()
                     FileRead(&fileBuffer, 3);
                 } while (c != 0x100);
             }
-            ReadGifPictureData(surface->width, surface->height, interlaced,
-                                       graphicData, surface->dataPosition);
+            ReadGifPictureData(surface->width, surface->height, interlaced, graphicData, surface->dataPosition);
 
             SetFilePosition(videoFilePos);
             ++currentVideoFrame;
@@ -171,25 +158,14 @@ int ProcessVideo()
         }
 
         if (keyPress.A) {
-            if (!videoSkipped) 
+            if (!videoSkipped)
                 fadeMode = 0;
 
             videoSkipped = true;
         }
 
         if (!THEORAPLAY_isDecoding(videoDecoder) || (videoSkipped && fadeMode >= 0xFF)) {
-            if (videoSkipped && fadeMode >= 0xFF)
-                fadeMode = 0;
-
-            if (videoVidData)
-                THEORAPLAY_freeVideo(videoVidData);
-            if (videoAudioData)
-                THEORAPLAY_freeAudio(videoAudioData);
-            if (videoDecoder)
-                THEORAPLAY_stopDecode(videoDecoder);
-
-            CloseVideoBuffer();
-            videoPlaying = false;
+            StopVideoPlayback();
 
             return 1; // video finished
         }
@@ -227,19 +203,22 @@ int ProcessVideo()
                     // video lagging uh oh
                 }
 
-                memset(Engine.videoFrameBuffer, 0, (videoWidth * videoHeight) * sizeof(uint));
-                uint px = 0;
-                for (uint i = 0; i < (videoWidth * videoHeight) * sizeof(uint); i += sizeof(uint)) {
-                    Engine.videoFrameBuffer[px++] = (videoVidData->pixels[i + 3] << 24 | videoVidData->pixels[i] << 16
-                                                     | videoVidData->pixels[i + 1] << 8 | videoVidData->pixels[i + 2] << 0);
-                }
+                int half_w     = videoVidData->width / 2;
+                const Uint8 *y = (const Uint8 *)videoVidData->pixels;
+                const Uint8 *u = y + (videoVidData->width * videoVidData->height);
+                const Uint8 *v = u + (half_w * (videoVidData->height / 2));
+
+#if RETRO_USING_SDL2
+                SDL_UpdateYUVTexture(Engine.videoBuffer, NULL, y, videoVidData->width, u, half_w, v, half_w);
+#endif
+#if RETRO_USING_SDL1
+                uint *videoFrameBuffer = (uint *)Engine.videoBuffer->pixels;
+                memcpy(videoFrameBuffer, videoVidData->pixels, videoVidData->width * videoVidData->height * sizeof(uint));
+#endif
 
                 THEORAPLAY_freeVideo(videoVidData);
                 videoVidData = NULL;
             }
-
-            //Clear audio data
-            while ((videoAudioData = THEORAPLAY_getAudio(videoDecoder)) != NULL) THEORAPLAY_freeAudio(videoAudioData);
 
             return 2; // its playing as expected
         }
@@ -248,23 +227,55 @@ int ProcessVideo()
     return 0; // its not even initialised
 }
 
-
-void SetupVideoBuffer(int width, int height) {
-    Engine.videoBuffer = SDL_CreateTexture(Engine.renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, width, height);
-
-    if (!Engine.videoBuffer) 
-        printLog("Failed to create video buffer!");
-
-    Engine.videoFrameBuffer = new uint[width * height];
-}
-void CloseVideoBuffer() {
+void StopVideoPlayback()
+{
     if (videoPlaying) {
-        if (Engine.videoFrameBuffer) {
-            delete[] Engine.videoFrameBuffer;
-            Engine.videoFrameBuffer = nullptr;
+        // `videoPlaying` and `videoDecoder` are read by
+        // the audio thread, so lock it to prevent a race
+        // condition that results in invalid memory accesses.
+        SDL_LockAudio();
+
+        if (videoSkipped && fadeMode >= 0xFF)
+            fadeMode = 0;
+
+        if (videoVidData) {
+            THEORAPLAY_freeVideo(videoVidData);
+            videoVidData = NULL;
+        }
+        if (videoDecoder) {
+            THEORAPLAY_stopDecode(videoDecoder);
+            videoDecoder = NULL;
         }
 
+        CloseVideoBuffer();
+        videoPlaying = false;
+
+        SDL_UnlockAudio();
+    }
+}
+
+void SetupVideoBuffer(int width, int height)
+{
+#if RETRO_USING_SDL1
+    Engine.videoBuffer = SDL_CreateRGBSurface(0, width, height, 32, 0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000);
+#endif
+#if RETRO_USING_SDL2
+    Engine.videoBuffer = SDL_CreateTexture(Engine.renderer, SDL_PIXELFORMAT_YV12, SDL_TEXTUREACCESS_STREAMING, width, height);
+#endif
+
+    if (!Engine.videoBuffer)
+        printLog("Failed to create video buffer!");
+}
+
+void CloseVideoBuffer()
+{
+    if (videoPlaying) {
+#if RETRO_USING_SDL1
+        SDL_FreeSurface(Engine.videoBuffer);
+#endif
+#if RETRO_USING_SDL2
         SDL_DestroyTexture(Engine.videoBuffer);
+#endif
         Engine.videoBuffer = nullptr;
     }
 }

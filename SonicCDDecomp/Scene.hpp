@@ -71,10 +71,10 @@ struct SceneInfo {
 };
 
 struct CollisionMasks {
-    char floorMasks[TILE_COUNT * TILE_SIZE];
-    char lWallMasks[TILE_COUNT * TILE_SIZE];
-    char rWallMasks[TILE_COUNT * TILE_SIZE];
-    char roofMasks[TILE_COUNT * TILE_SIZE];
+    sbyte floorMasks[TILE_COUNT * TILE_SIZE];
+    sbyte lWallMasks[TILE_COUNT * TILE_SIZE];
+    sbyte rWallMasks[TILE_COUNT * TILE_SIZE];
+    sbyte roofMasks[TILE_COUNT * TILE_SIZE];
     int angles[TILE_COUNT];
     byte flags[TILE_COUNT];
 };
@@ -100,6 +100,7 @@ struct LineScroll {
     int parallaxFactor[PARALLAX_COUNT];
     int scrollSpeed[PARALLAX_COUNT];
     int scrollPos[PARALLAX_COUNT];
+    int tilePos[PARALLAX_COUNT];
     int deform[PARALLAX_COUNT];
     byte entryCount;
 };
@@ -156,7 +157,7 @@ extern int lastYSize;
 extern bool pauseEnabled;
 extern bool timeEnabled;
 extern bool debugMode;
-extern int stageTimer;
+extern int frameCounter;
 extern int stageMilliseconds;
 extern int stageSeconds;
 extern int stageMinutes;
@@ -188,6 +189,7 @@ extern CollisionMasks collisionMasks[2];
 extern byte tilesetGFXData[TILESET_SIZE];
 
 extern ushort tile3DFloorBuffer[0x13334];
+extern bool drawStageGFXHQ;
 
 void InitFirstStage();
 void ProcessStage();

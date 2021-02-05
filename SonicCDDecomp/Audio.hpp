@@ -1,6 +1,14 @@
 #ifndef AUDIO_H
 #define AUDIO_H
 
+#include <stdlib.h>
+
+#include <vorbis/vorbisfile.h>
+
+#if RETRO_PLATFORM != RETRO_VITA
+#include "SDL.h"
+#endif
+
 #define TRACK_COUNT (0x10)
 #define SFX_COUNT (0x100)
 #define CHANNEL_COUNT (0x4)
@@ -15,34 +23,34 @@ struct TrackInfo {
 };
 
 struct MusicPlaybackInfo {
-#if RETRO_USING_SDL
     OggVorbis_File vorbisFile;
-    uint audioLen;
     int vorbBitstream;
+#if RETRO_USING_SDL1
     SDL_AudioSpec spec;
-    SDL_AudioStream *stream;
-    byte *buffer;
-    byte *extraBuffer;
 #endif
+#if RETRO_USING_SDL2
+    SDL_AudioStream *stream;
+#endif
+    Sint16 *buffer;
     FileInfo fileInfo;
-    TrackInfo *currentTrack;
+    bool trackLoop;
+    uint loopPoint;
     bool loaded;
 };
 
 struct SFXInfo {
     char name[0x40];
-    byte *buffer;
-    int length;
+    Sint16 *buffer;
+    size_t length;
     bool loaded;
 };
 
 struct ChannelInfo {
-    int sampleStart;
-    int sampleLength;
-    byte *samplePtr;
+    size_t sampleLength;
+    Sint16 *samplePtr;
     int sfxID;
     byte loopSFX;
-    char pan;
+    sbyte pan;
 };
 
 enum MusicStatuses {
@@ -72,34 +80,39 @@ extern ChannelInfo sfxChannels[CHANNEL_COUNT];
 
 extern MusicPlaybackInfo musInfo;
 
-#if RETRO_USING_SDL
+#if RETRO_USING_SDL1 || RETRO_USING_SDL2
 extern SDL_AudioSpec audioDeviceFormat;
 #endif
 
 int InitAudioPlayback();
 
-#if RETRO_USING_SDL
-void ProcessMusicStream(void *data, Uint8 *stream, int le);
+#if RETRO_USING_SDL1 || RETRO_USING_SDL2
+void ProcessMusicStream(void *data, Sint16 *stream, int len);
 void ProcessAudioPlayback(void *data, Uint8 *stream, int len);
-void ProcessAudioMixing(void *sfx, Uint8 *dst, const byte *src, SDL_AudioFormat format, Uint32 len, int volume, bool music);
+void ProcessAudioMixing(Sint32 *dst, const Sint16 *src, int len, int volume, sbyte pan);
 
 
 inline void freeMusInfo()
 {
     if (musInfo.loaded) {
+        SDL_LockAudio();
+
         if (musInfo.buffer)
             delete[] musInfo.buffer;
-        if (musInfo.extraBuffer)
-            delete[] musInfo.extraBuffer;
+#if RETRO_USING_SDL2
         if (musInfo.stream)
             SDL_FreeAudioStream(musInfo.stream);
+#endif
         ov_clear(&musInfo.vorbisFile);
         musInfo.buffer       = nullptr;
-        musInfo.extraBuffer  = nullptr;
-        musInfo.stream       = nullptr;
-        musInfo.audioLen     = 0;
-        musInfo.currentTrack = nullptr;
+#if RETRO_USING_SDL2
+        musInfo.stream = nullptr;
+#endif
+        musInfo.trackLoop    = false;
+        musInfo.loopPoint    = 0;
         musInfo.loaded       = false;
+
+        SDL_UnlockAudio();
     }
 }
 #else
@@ -115,7 +128,6 @@ inline void freeMusInfo()
         musInfo.musicFile    = nullptr;
         musInfo.buffer       = nullptr;
         musInfo.stream       = nullptr;
-        musInfo.audioLen     = 0;
         musInfo.pos          = 0;
         musInfo.len          = 0;
         musInfo.currentTrack = nullptr;
@@ -143,7 +155,7 @@ inline void StopSfx(int sfx)
         }
     }
 }
-void SetSfxAttributes(int sfx, int loopCount, char pan);
+void SetSfxAttributes(int sfx, int loopCount, sbyte pan);
 
 inline void SetMusicVolume(int volume)
 {

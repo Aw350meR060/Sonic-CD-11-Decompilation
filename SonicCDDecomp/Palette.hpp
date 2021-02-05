@@ -26,12 +26,15 @@ extern byte fadeB;
 
 extern int paletteMode;
 
+#define RGB888_TO_RGB5551(r, g, b) (2 * ((b) >> 3) | ((g) >> 3 << 6) | ((r) >> 3 << 11) | 1) // used in mobile vers
+#define RGB888_TO_RGB565(r, g, b)  ((b) >> 3) | (((g) >> 2) << 5) | (((r) >> 3) << 11)       // used in pc vers
+
 void LoadPalette(const char *filePath, int paletteID, int startPaletteIndex, int startIndex, int endIndex);
 
 inline void SetActivePalette(byte newActivePal, int startLine, int endLine)
 {
     if (newActivePal < PALETTE_COUNT)
-        while (startLine++ < endLine) gfxLineBuffer[startLine % SCREEN_YSIZE] = newActivePal;
+        for (int l = startLine; l < endLine && l < SCREEN_YSIZE; l++) gfxLineBuffer[l] = newActivePal;
 
     activePalette   = fullPalette[gfxLineBuffer[0]];
     activePalette32 = fullPalette32[gfxLineBuffer[0]];
@@ -40,13 +43,13 @@ inline void SetActivePalette(byte newActivePal, int startLine, int endLine)
 inline void SetPaletteEntry(byte paletteIndex, byte index, byte r, byte g, byte b)
 {
     if (paletteIndex != 0xFF) {
-        fullPalette[paletteIndex][index]     = ((int)b >> 3) | 32 * ((int)g >> 2) | ((ushort)((int)r >> 3) << 11);
+        fullPalette[paletteIndex][index]     = RGB888_TO_RGB565(r, g, b);
         fullPalette32[paletteIndex][index].r = r;
         fullPalette32[paletteIndex][index].g = g;
         fullPalette32[paletteIndex][index].b = b;
     }
     else {
-        activePalette[index]     = ((int)b >> 3) | 32 * ((int)g >> 2) | ((ushort)((int)r >> 3) << 11);
+        activePalette[index]     = RGB888_TO_RGB565(r, g, b);
         activePalette32[index].r = r;
         activePalette32[index].g = g;
         activePalette32[index].b = b;

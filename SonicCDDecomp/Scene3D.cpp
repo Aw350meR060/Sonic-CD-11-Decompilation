@@ -49,9 +49,9 @@ void matrixMultiply(Matrix *matrixA, Matrix *matrixB)
 
     for (int i = 0; i < 0x10; ++i) {
         uint RowB = i & 3;
-        uint RowA = i & 0xC;
-        output[i] = (matrixA->values[0][RowA + 3] * matrixB->values[3][RowB] >> 8) + (matrixA->values[0][RowA + 2] * matrixB->values[2][RowB] >> 8)
-                    + (matrixA->values[0][RowA + 1] * matrixB->values[1][RowB] >> 8) + (matrixA->values[0][RowA] * matrixB->values[0][RowB] >> 8);
+        uint RowA = (i & 0xC)/4;
+        output[i] = (matrixA->values[RowA][3] * matrixB->values[3][RowB] >> 8) + (matrixA->values[RowA][2] * matrixB->values[2][RowB] >> 8)
+                    + (matrixA->values[RowA][1] * matrixB->values[1][RowB] >> 8) + (matrixA->values[RowA][0] * matrixB->values[0][RowB] >> 8);
     }
 
     for (int i = 0; i < 0x10; ++i) matrixA->values[i / 4][i % 4] = output[i];
@@ -224,8 +224,6 @@ void transformVertexBuffer()
         vert->x = (vx * matFinal.values[0][0] >> 8) + (vy * matFinal.values[1][0] >> 8) + (vz * matFinal.values[2][0] >> 8) + matFinal.values[3][0];
         vert->y = (vx * matFinal.values[0][1] >> 8) + (vy * matFinal.values[1][1] >> 8) + (vz * matFinal.values[2][1] >> 8) + matFinal.values[3][1];
         vert->z = (vx * matFinal.values[0][2] >> 8) + (vy * matFinal.values[1][2] >> 8) + (vz * matFinal.values[2][2] >> 8) + matFinal.values[3][2];
-        if (vert->z < 1 && vert->z > 0)
-            vert->z = 1;
     } while (++outVertexID != vertexCount);
 }
 void transformVerticies(Matrix *matrix, int startIndex, int endIndex)

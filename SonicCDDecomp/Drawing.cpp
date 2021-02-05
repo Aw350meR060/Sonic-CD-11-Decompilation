@@ -20,17 +20,20 @@ int InitRenderDevice()
     sprintf(gameTitle, "%s%s", Engine.gameWindowText, Engine.usingDataFile ? "" : " (Using Data Folder)");
 
     Engine.frameBuffer = new ushort[SCREEN_XSIZE * SCREEN_YSIZE];
+    Engine.frameBuffer2x = new ushort[(SCREEN_XSIZE * 2) * (SCREEN_YSIZE * 2)];
     memset(Engine.frameBuffer, 0, (SCREEN_XSIZE * SCREEN_YSIZE) * sizeof(ushort));
+    memset(Engine.frameBuffer2x, 0, (SCREEN_XSIZE * 2) * (SCREEN_YSIZE * 2) * sizeof(ushort));
 
-#if RETRO_USING_SDL
+#if RETRO_USING_SDL2
     SDL_Init(SDL_INIT_EVERYTHING);
 
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
     SDL_SetHint(SDL_HINT_RENDER_VSYNC, Engine.vsync ? "1" : "0");
+    SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+    SDL_SetHint(SDL_HINT_WINRT_HANDLE_BACK_BUTTON, "1");
 
-    Engine.window = SDL_CreateWindow(gameTitle, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_XSIZE, SCREEN_YSIZE,
-                                     SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-
+    Engine.window   = SDL_CreateWindow(gameTitle, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_XSIZE * Engine.windowScale,
+                                     SCREEN_YSIZE * Engine.windowScale, SDL_WINDOW_ALLOW_HIGHDPI);
     Engine.renderer = SDL_CreateRenderer(Engine.window, -1, SDL_RENDERER_ACCELERATED);
 
     if (!Engine.window) {
@@ -44,7 +47,7 @@ int InitRenderDevice()
         Engine.gameMode = ENGINE_EXITGAME;
         return 0;
     }
-
+    
     SDL_RenderSetLogicalSize(Engine.renderer, SCREEN_XSIZE, SCREEN_YSIZE);
     SDL_SetRenderDrawBlendMode(Engine.renderer, SDL_BLENDMODE_BLEND);
 
@@ -55,13 +58,17 @@ int InitRenderDevice()
         return 0;
     }
 
-    if (Engine.fullScreen) {
+    Engine.screenBuffer2x = SDL_CreateTexture(Engine.renderer, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STREAMING, SCREEN_XSIZE * 2, SCREEN_YSIZE * 2);
+
+    if (!Engine.screenBuffer2x) {
+        printLog("ERROR: failed to create screen buffer HQ!\nerror msg: %s", SDL_GetError());
+        return 0;
+    }
+
+    if (Engine.startFullScreen) {
         SDL_RestoreWindow(Engine.window);
         SDL_SetWindowFullscreen(Engine.window, SDL_WINDOW_FULLSCREEN_DESKTOP);
         Engine.isFullScreen = true;
-    }
-    else {
-        SDL_SetWindowSize(Engine.window, SCREEN_XSIZE * Engine.windowScale, SCREEN_YSIZE * Engine.windowScale);
     }
 
     if (Engine.borderless) {
@@ -69,9 +76,76 @@ int InitRenderDevice()
         SDL_SetWindowBordered(Engine.window, SDL_FALSE);
     }
 
-    SDL_SetWindowResizable(Engine.window, SDL_FALSE);
     SDL_SetWindowPosition(Engine.window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    
+    SDL_DisplayMode disp;
+    int winID = SDL_GetWindowDisplayIndex(Engine.window);
+    if (SDL_GetCurrentDisplayMode(winID, &disp) == 0) {
+        Engine.screenRefreshRate = disp.refresh_rate;
+    }
+    else {
+        printf("error: %s",SDL_GetError());
+    }
+    
+#if RETRO_PLATFORM == RETRO_iOS
+    SDL_RestoreWindow(Engine.window);
+    SDL_SetWindowFullscreen(Engine.window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+    Engine.isFullScreen = true;
 #endif
+    
+#endif
+
+#if RETRO_USING_SDL1
+    SDL_Init(SDL_INIT_EVERYTHING);
+
+    //SDL1.2 doesn't support hints it seems
+    //SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
+    //SDL_SetHint(SDL_HINT_RENDER_VSYNC, Engine.vsync ? "1" : "0");
+    //SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+    //SDL_SetHint(SDL_HINT_WINRT_HANDLE_BACK_BUTTON, "1");
+
+    Engine.windowSurface = SDL_SetVideoMode(SCREEN_XSIZE * Engine.windowScale, SCREEN_YSIZE * Engine.windowScale, 32, SDL_SWSURFACE);
+    if (!Engine.windowSurface) {
+        printLog("ERROR: failed to create window!\nerror msg: %s", SDL_GetError());
+        return 0;
+    }
+    // Set the window caption
+    SDL_WM_SetCaption(gameTitle, NULL);
+
+    Engine.screenBuffer =
+        SDL_CreateRGBSurface(0, SCREEN_XSIZE * Engine.windowScale, SCREEN_YSIZE * Engine.windowScale, 16, 0xF800, 0x7E0, 0x1F, 0x00);
+
+    if (!Engine.screenBuffer) {
+        printLog("ERROR: failed to create screen buffer!\nerror msg: %s", SDL_GetError());
+        return 0;
+    }
+
+    /*Engine.screenBuffer2x = SDL_SetVideoMode(SCREEN_XSIZE * 2, SCREEN_YSIZE * 2, 16, SDL_SWSURFACE);
+
+    if (!Engine.screenBuffer2x) {
+        printLog("ERROR: failed to create screen buffer HQ!\nerror msg: %s", SDL_GetError());
+        return 0;
+    }*/
+
+    if (Engine.startFullScreen) {
+        Engine.windowSurface =
+            SDL_SetVideoMode(SCREEN_XSIZE * Engine.windowScale, SCREEN_YSIZE * Engine.windowScale, 16, SDL_SWSURFACE | SDL_FULLSCREEN);
+        SDL_ShowCursor(SDL_FALSE);
+        Engine.isFullScreen = true;
+    }
+
+    // TODO: not supported in 1.2?
+    if (Engine.borderless) {
+        // SDL_RestoreWindow(Engine.window);
+        // SDL_SetWindowBordered(Engine.window, SDL_FALSE);
+    }
+
+    // SDL_SetWindowPosition(Engine.window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+
+    Engine.useHQModes = false; // disabled
+    Engine.borderless = false; // disabled
+#endif
+
 
     OBJECT_BORDER_X2 = SCREEN_XSIZE + 0x80;
     // OBJECT_BORDER_Y2 = SCREEN_YSIZE + 0x100;
@@ -83,44 +157,220 @@ void RenderRenderDevice()
     if (Engine.gameMode == ENGINE_EXITGAME)
         return;
 
-#if RETRO_USING_SDL
-    SDL_Rect destScreenPos;
-    destScreenPos.x = 0;
-    destScreenPos.y = 0;
-    destScreenPos.w = SCREEN_XSIZE;
-    destScreenPos.h = SCREEN_YSIZE;
+#if RETRO_USING_SDL2
+    SDL_Rect *destScreenPos = NULL;
+    SDL_Rect destScreenPos_scaled;
+    SDL_Texture *texTarget = NULL;
+    // allows me to disable it to prevent blur on resolutions that match only on 1 axis
+    bool tmpEnhancedScaling = Engine.enhancedScaling;
+    SDL_GetWindowSize(Engine.window, &Engine.windowXSize, &Engine.windowYSize);
+    float screenxsize = SCREEN_XSIZE;
+    float screenysize = SCREEN_YSIZE;
+    // check if enhanced scaling is even necessary to be calculated by checking if the screen size is close enough on one axis
+    // unfortunately it has to be "close enough" because of floating point precision errors. dang it
+    if (tmpEnhancedScaling) {
+        bool cond1 = (std::round((Engine.windowXSize / screenxsize) * 24) / 24 == std::floor(Engine.windowXSize / screenxsize)) ? true : false;
+        bool cond2 = (std::round((Engine.windowYSize / screenysize) * 24) / 24 == std::floor(Engine.windowYSize / screenysize)) ? true : false;
+        if (cond1 || cond2)
+            tmpEnhancedScaling = false;
+    }
 
-    int pitch = 0;
-    SDL_SetRenderTarget(Engine.renderer, NULL);
-    ushort *pixels = NULL;
-    if (Engine.gameMode != ENGINE_VIDEOWAIT) {
-        SDL_LockTexture(Engine.screenBuffer, NULL, (void **)&pixels, &pitch);
-        memcpy(pixels, Engine.frameBuffer, pitch * SCREEN_YSIZE);
-        SDL_UnlockTexture(Engine.screenBuffer);
+    // get 2x resolution if HQ is enabled.
+    if (drawStageGFXHQ) {
+        screenxsize *= 2;
+        screenysize *= 2;
+    }
 
-        SDL_RenderCopy(Engine.renderer, Engine.screenBuffer, NULL, &destScreenPos);
+    if (!tmpEnhancedScaling) {
+        // everything here remains the same except for assinging the rect to the switching pointer.
+        // the pointer has to be NULL when using enhanced scaling, or else the screen will be black.
+        SDL_Rect destScreenPosRect;
+        destScreenPosRect.x = 0;
+        destScreenPosRect.y = 0;
+        destScreenPosRect.w = SCREEN_XSIZE;
+        destScreenPosRect.h = SCREEN_YSIZE;
+
+        
+        if (videoPlaying) {
+            float screenAR = float(SCREEN_XSIZE) / float(SCREEN_YSIZE);
+            if (screenAR > videoAR) {                            // If the screen is wider than the video. (Pillarboxed)
+                uint videoW      = uint(SCREEN_YSIZE * videoAR); // This is to force Pillarboxed mode if the screen is wider than the video.
+                destScreenPosRect.x = (SCREEN_XSIZE - videoW) / 2;  // Centers the video horizontally.
+                destScreenPosRect.w = videoW;
+            }
+            else {
+                uint videoH      = uint(float(SCREEN_XSIZE) / videoAR); // This is to force letterbox mode if the video is wider than the screen.
+                destScreenPosRect.y = (SCREEN_YSIZE - videoH) / 2;         // Centers the video vertically.
+                destScreenPosRect.h = videoH;
+            }
+            destScreenPos = &destScreenPosRect;
+        }
     }
     else {
-        SDL_LockTexture(Engine.videoBuffer, NULL, (void **)&pixels, &pitch);
-        memcpy(pixels, Engine.videoFrameBuffer, pitch * videoHeight);
-        SDL_UnlockTexture(Engine.videoBuffer);
+        // set up integer scaled texture, which is scaled to the largest integer scale of the screen buffer
+        // before you make a texture that's larger than the window itself. This texture will then be scaled
+        // up to the actual screen size using linear interpolation. This makes even window/screen scales
+        // nice and sharp, and uneven scales as sharp as possible without creating wonky pixel scales,
+        // creating a nice image.
 
-        SDL_RenderCopy(Engine.renderer, Engine.videoBuffer, NULL, &destScreenPos);
+        // get integer scale
+        float scale =
+            std::fminf(std::floor((float)Engine.windowXSize / (float)SCREEN_XSIZE), std::floor((float)Engine.windowYSize / (float)SCREEN_YSIZE));
+        SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear"); // set interpolation to linear
+        // create texture that's integer scaled.
+        texTarget = SDL_CreateTexture(Engine.renderer, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_TARGET, SCREEN_XSIZE * scale, SCREEN_YSIZE * scale);
+
+        // keep aspect
+        float aspectScale      = std::fminf(Engine.windowYSize / screenysize, Engine.windowXSize / screenxsize);
+        float xoffset          = (Engine.windowXSize - (screenxsize * aspectScale)) / 2;
+        float yoffset          = (Engine.windowYSize - (screenysize * aspectScale)) / 2;
+        destScreenPos_scaled.x = std::round(xoffset);
+        destScreenPos_scaled.y = std::round(yoffset);
+        destScreenPos_scaled.w = std::round(screenxsize * aspectScale);
+        destScreenPos_scaled.h = std::round(screenysize * aspectScale);
+        // fill the screen with the texture, making lerp work.
+        SDL_RenderSetLogicalSize(Engine.renderer, Engine.windowXSize, Engine.windowYSize);
     }
 
-    SDL_RenderPresent(Engine.renderer);
+    int pitch = 0;
+    SDL_SetRenderTarget(Engine.renderer, texTarget);
+
+    // Clear the screen. This is needed to keep the
+    // pillarboxes in fullscreen from displaying garbage data.
+    SDL_RenderClear(Engine.renderer);
+
+    ushort *pixels = NULL;
+    if (Engine.gameMode != ENGINE_VIDEOWAIT) {
+        if (!drawStageGFXHQ) {
+            SDL_LockTexture(Engine.screenBuffer, NULL, (void **)&pixels, &pitch);
+            memcpy(pixels, Engine.frameBuffer, pitch * SCREEN_YSIZE);
+            SDL_UnlockTexture(Engine.screenBuffer);
+
+            SDL_RenderCopy(Engine.renderer, Engine.screenBuffer, NULL, destScreenPos);
+        }
+        else {
+            int w = 0, h = 0;
+            SDL_QueryTexture(Engine.screenBuffer2x, NULL, NULL, &w, &h);
+            SDL_LockTexture(Engine.screenBuffer2x, NULL, (void **)&pixels, &pitch);
+
+            ushort *framebufferPtr = Engine.frameBuffer;
+            for (int y = 0; y < (SCREEN_YSIZE / 2) + 12; ++y) {
+                for (int x = 0; x < SCREEN_XSIZE; ++x) {
+                    *pixels = *framebufferPtr;
+                    pixels++;
+                    *pixels = *framebufferPtr;
+                    pixels++;
+                    framebufferPtr++;
+                }
+
+                framebufferPtr -= SCREEN_XSIZE;
+                for (int x = 0; x < SCREEN_XSIZE; ++x) {
+                    *pixels = *framebufferPtr;
+                    pixels++;
+                    *pixels = *framebufferPtr;
+                    pixels++;
+                    framebufferPtr++;
+                }
+            }
+
+            framebufferPtr = Engine.frameBuffer2x;
+            for (int y = 0; y < ((SCREEN_YSIZE / 2) - 12) * 2; ++y) {
+                for (int x = 0; x < SCREEN_XSIZE; ++x) {
+                    *pixels = *framebufferPtr;
+                    framebufferPtr++;
+                    pixels++;
+
+                    *pixels = *framebufferPtr;
+                    framebufferPtr++;
+                    pixels++;
+                }
+            }
+            SDL_UnlockTexture(Engine.screenBuffer2x);
+            SDL_RenderCopy(Engine.renderer, Engine.screenBuffer2x, NULL, destScreenPos);
+        }
+    }
+    else {
+        SDL_RenderCopy(Engine.renderer, Engine.videoBuffer, NULL, destScreenPos);
+    }
+
+    if (tmpEnhancedScaling) {
+        // set render target back to the screen.
+        SDL_SetRenderTarget(Engine.renderer, NULL);
+        // clear the screen itself now, for same reason as above
+        SDL_RenderClear(Engine.renderer);
+        // copy texture to screen with lerp
+        SDL_RenderCopy(Engine.renderer, texTarget, NULL, &destScreenPos_scaled);
+        // finally present it
+        SDL_RenderPresent(Engine.renderer);
+        // reset everything just in case
+        SDL_RenderSetLogicalSize(Engine.renderer, SCREEN_XSIZE, SCREEN_YSIZE);
+        SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
+        // putting some FLEX TAPE® on that memory leak
+        SDL_DestroyTexture(texTarget);
+    }
+    else {
+        // no change here
+        SDL_RenderPresent(Engine.renderer);
+    }
+#endif
+
+#if RETRO_USING_SDL1
+    ushort *px = (ushort *)Engine.screenBuffer->pixels;
+    int w      = SCREEN_XSIZE * Engine.windowScale;
+    int h      = SCREEN_YSIZE * Engine.windowScale;
+
+    //TODO: there's gotta be a way to have SDL1.2 fill the window with the surface... right?
+    if (Engine.gameMode != ENGINE_VIDEOWAIT) {
+        if (Engine.windowScale == 1) {
+            memcpy(Engine.screenBuffer->pixels, Engine.frameBuffer, Engine.screenBuffer->pitch * SCREEN_YSIZE);
+        }
+        else {
+            // TODO: this better, I really dont know how to use SDL1.2 well lol
+            int dx = 0, dy = 0;
+            do {
+                do {
+                    int x = (int)(dx * (1.0f / Engine.windowScale));
+                    int y = (int)(dy * (1.0f / Engine.windowScale));
+
+                    px[dx + (dy * w)] = Engine.frameBuffer[x + (y * SCREEN_XSIZE)];
+
+                    dx++;
+                } while (dx < w);
+                dy++;
+                dx = 0;
+            } while (dy < h);
+        }
+        // Apply image to screen
+        SDL_BlitSurface(Engine.screenBuffer, NULL, Engine.windowSurface, NULL);
+    }
+    else {
+        // Apply image to screen
+        SDL_BlitSurface(Engine.videoBuffer, NULL, Engine.windowSurface, NULL);
+    }
+
+
+    // Update Screen
+    SDL_Flip(Engine.windowSurface);
 #endif
 }
 void ReleaseRenderDevice()
 {
     if (Engine.frameBuffer)
         delete[] Engine.frameBuffer;
-#if RETRO_USING_SDL
+    if (Engine.frameBuffer2x)
+        delete[] Engine.frameBuffer2x;
+#if RETRO_USING_SDL2
     SDL_DestroyTexture(Engine.screenBuffer);
     Engine.screenBuffer = NULL;
+    SDL_DestroyTexture(Engine.screenBuffer2x);
+    Engine.screenBuffer2x = NULL;
 
     SDL_DestroyRenderer(Engine.renderer);
     SDL_DestroyWindow(Engine.window);
+#endif
+
+#if RETRO_USING_SDL1
+    SDL_FreeSurface(Engine.screenBuffer);
 #endif
 }
 
@@ -171,6 +421,41 @@ void SetScreenSize(int width, int height)
     // OBJECT_BORDER_Y2   = height + 0x100;
 }
 
+void CopyFrameOverlay2x()
+{
+    ushort *frameBuffer   = &Engine.frameBuffer[((SCREEN_YSIZE / 2) + 12) * SCREEN_XSIZE];
+    ushort *frameBuffer2x = Engine.frameBuffer2x;
+
+    for (int y = 0; y < (SCREEN_YSIZE / 2) - 12; ++y) {
+        for (int x = 0; x < SCREEN_XSIZE; ++x) {
+            if (*frameBuffer == 0xF81F) { // magenta
+                frameBuffer2x += 2;
+            }
+            else {
+                *frameBuffer2x = *frameBuffer;
+                frameBuffer2x++;
+                *frameBuffer2x = *frameBuffer;
+                frameBuffer2x++;
+            }
+            ++frameBuffer;
+        }
+
+        frameBuffer -= SCREEN_XSIZE;
+        for (int x = 0; x < SCREEN_XSIZE; ++x) {
+            if (*frameBuffer == 0xF81F) { // magenta
+                frameBuffer2x += 2;
+            }
+            else {
+                *frameBuffer2x = *frameBuffer;
+                frameBuffer2x++;
+                *frameBuffer2x = *frameBuffer;
+                frameBuffer2x++;
+            }
+            ++frameBuffer;
+        }
+    }
+}
+
 void DrawObjectList(int Layer)
 {
     int size = drawListEntries[Layer].listSize;
@@ -198,8 +483,15 @@ void DrawStageGFX(void)
         switch (stageLayouts[activeTileLayers[0]].type) {
             case LAYER_HSCROLL: DrawHLineScrollLayer(0); break;
             case LAYER_VSCROLL: DrawVLineScrollLayer(0); break;
-            case LAYER_3DFLOOR: Draw3DFloorLayer(0); break;
-            case LAYER_3DSKY: Draw3DSkyLayer(0); break;
+            case LAYER_3DFLOOR:
+                drawStageGFXHQ = false;
+                Draw3DFloorLayer(0);
+                break;
+            case LAYER_3DSKY:
+                if (Engine.useHQModes)
+                    drawStageGFXHQ = true;
+                Draw3DSkyLayer(0);
+                break;
             default: break;
         }
     }
@@ -209,8 +501,15 @@ void DrawStageGFX(void)
         switch (stageLayouts[activeTileLayers[1]].type) {
             case LAYER_HSCROLL: DrawHLineScrollLayer(1); break;
             case LAYER_VSCROLL: DrawVLineScrollLayer(1); break;
-            case LAYER_3DFLOOR: Draw3DFloorLayer(1); break;
-            case LAYER_3DSKY: Draw3DSkyLayer(1); break;
+            case LAYER_3DFLOOR:
+                drawStageGFXHQ = false;
+                Draw3DFloorLayer(1);
+                break;
+            case LAYER_3DSKY:
+                if (Engine.useHQModes)
+                    drawStageGFXHQ = true;
+                Draw3DSkyLayer(1);
+                break;
             default: break;
         }
     }
@@ -220,8 +519,15 @@ void DrawStageGFX(void)
         switch (stageLayouts[activeTileLayers[2]].type) {
             case LAYER_HSCROLL: DrawHLineScrollLayer(2); break;
             case LAYER_VSCROLL: DrawVLineScrollLayer(2); break;
-            case LAYER_3DFLOOR: Draw3DFloorLayer(2); break;
-            case LAYER_3DSKY: Draw3DSkyLayer(2); break;
+            case LAYER_3DFLOOR:
+                drawStageGFXHQ = false;
+                Draw3DFloorLayer(2);
+                break;
+            case LAYER_3DSKY:
+                if (Engine.useHQModes)
+                    drawStageGFXHQ = true;
+                Draw3DSkyLayer(2);
+                break;
             default: break;
         }
     }
@@ -232,9 +538,32 @@ void DrawStageGFX(void)
         switch (stageLayouts[activeTileLayers[3]].type) {
             case LAYER_HSCROLL: DrawHLineScrollLayer(3); break;
             case LAYER_VSCROLL: DrawVLineScrollLayer(3); break;
-            case LAYER_3DFLOOR: Draw3DFloorLayer(3); break;
-            case LAYER_3DSKY: Draw3DSkyLayer(3); break;
+            case LAYER_3DFLOOR:
+                drawStageGFXHQ = false;
+                Draw3DFloorLayer(3);
+                break;
+            case LAYER_3DSKY:
+                if (Engine.useHQModes)
+                    drawStageGFXHQ = true;
+                Draw3DSkyLayer(3);
+                break;
             default: break;
+        }
+    }
+
+    DrawObjectList(5);
+    DrawObjectList(6);
+
+    if (drawStageGFXHQ) {
+        CopyFrameOverlay2x();
+        if (fadeMode > 0) {
+            DrawRectangle(0, 0, SCREEN_XSIZE, SCREEN_YSIZE, fadeR, fadeG, fadeB, fadeA);
+            SetFadeHQ(fadeR, fadeG, fadeB, fadeA);
+        }
+    }
+    else {
+        if (fadeMode > 0) {
+            DrawRectangle(0, 0, SCREEN_XSIZE, SCREEN_YSIZE, fadeR, fadeG, fadeB, fadeA);
         }
     }
 
@@ -249,17 +578,7 @@ void DrawStageGFX(void)
             }
         }
     }
-
-    DrawObjectList(5);
-    DrawObjectList(6);
-
-    if (fadeMode > 0) {
-        DrawRectangle(0, 0, SCREEN_XSIZE, SCREEN_YSIZE, fadeR, fadeG, fadeB, fadeA);
-    }
 }
-
-int tileXPos[PARALLAX_COUNT];
-int tileYPos[PARALLAX_COUNT];
 
 void DrawHLineScrollLayer(int layerID)
 {
@@ -291,7 +610,7 @@ void DrawHLineScrollLayer(int layerID)
         lastXSize = layer->width;
         yscrollOffset    = yScrollOffset;
         lineScroll       = layer->lineScroll;
-        for (int i = 0; i < PARALLAX_COUNT; ++i) tileXPos[i] = xScrollOffset;
+        for (int i = 0; i < PARALLAX_COUNT; ++i) hParallax.tilePos[i] = xScrollOffset;
         deformationData  = &bgDeformationData0[(byte)(yscrollOffset + layer->deformationOffset)];
         deformationDataW = &bgDeformationData1[(byte)(yscrollOffset + waterDrawPos + layer->deformationOffsetW)];
     }
@@ -300,14 +619,14 @@ void DrawHLineScrollLayer(int layerID)
         if (lastXSize != layerwidth) {
             int fullLayerwidth = layerwidth << 7;
             for (int i = 0; i < hParallax.entryCount; ++i) {
-                tileXPos[i] = xScrollOffset * hParallax.parallaxFactor[i] >> 8;
+                hParallax.tilePos[i] = xScrollOffset * hParallax.parallaxFactor[i] >> 8;
                 hParallax.scrollPos[i] += hParallax.scrollSpeed[i];
                 if (hParallax.scrollPos[i] > fullLayerwidth << 16)
                     hParallax.scrollPos[i] -= fullLayerwidth << 16;
                 if (hParallax.scrollPos[i] < 0)
                     hParallax.scrollPos[i] += fullLayerwidth << 16;
-                tileXPos[i] += hParallax.scrollPos[i] >> 16;
-                tileXPos[i] %= fullLayerwidth;
+                hParallax.tilePos[i] += hParallax.scrollPos[i] >> 16;
+                hParallax.tilePos[i] %= fullLayerwidth;
             }
         }
         lastXSize = layerwidth;
@@ -330,7 +649,7 @@ void DrawHLineScrollLayer(int layerID)
             activePalette = fullPalette[*lineBuffer];
             activePalette32 = fullPalette32[*lineBuffer];
             lineBuffer++;
-            int chunkX             = tileXPos[*scrollIndex];
+            int chunkX = hParallax.tilePos[*scrollIndex];
             if (i == 0) {
                 if (hParallax.deform[*scrollIndex])
                     chunkX += *deformationData;
@@ -805,7 +1124,7 @@ void DrawVLineScrollLayer(int layerID)
         lastYSize           = layer->height;
         xscrollOffset       = xScrollOffset;
         lineScroll          = layer->lineScroll;
-        tileYPos[0]         = yScrollOffset;
+        vParallax.tilePos[0] = yScrollOffset;
         vParallax.deform[0] = true;
         deformationData     = &bgDeformationData0[(byte)(xScrollOffset + layer->deformationOffset)];
     }
@@ -814,14 +1133,14 @@ void DrawVLineScrollLayer(int layerID)
         if (lastYSize != layerheight) {
             int fullLayerheight = layerheight << 7;
             for (int i = 0; i < vParallax.entryCount; ++i) {
-                tileYPos[i] = xScrollOffset * vParallax.parallaxFactor[i] >> 8;
+                vParallax.tilePos[i] = xScrollOffset * vParallax.parallaxFactor[i] >> 8;
                 vParallax.scrollPos[i] += vParallax.scrollSpeed[i];
                 if (vParallax.scrollPos[i] > fullLayerheight << 16)
                     vParallax.scrollPos[i] -= fullLayerheight << 16;
                 if (vParallax.scrollPos[i] < 0)
                     vParallax.scrollPos[i] += fullLayerheight << 16;
-                tileYPos[i] += vParallax.scrollPos[i] >> 16;
-                tileYPos[i] %= fullLayerheight;
+                vParallax.tilePos[i] += vParallax.scrollPos[i] >> 16;
+                vParallax.tilePos[i] %= fullLayerheight;
             }
             layerheight = fullLayerheight >> 7;
         }
@@ -841,7 +1160,7 @@ void DrawVLineScrollLayer(int layerID)
     // Draw Above Water (if applicable)
     int drawableLines = waterDrawPos;
     while (drawableLines--) {
-        int chunkY = tileYPos[*scrollIndex];
+        int chunkY = vParallax.tilePos[*scrollIndex];
         if (vParallax.deform[*scrollIndex])
             chunkY += *deformationData;
         ++deformationData;
@@ -1296,10 +1615,10 @@ void Draw3DFloorLayer(int layerID)
     int sinValue            = sinM[layer->angle];
     int cosValue            = cosM[layer->angle];
     byte *linePtr           = gfxLineBuffer;
-    ushort *frameBufferPtr  = &Engine.frameBuffer[132 * SCREEN_XSIZE];
+    ushort *frameBufferPtr  = &Engine.frameBuffer[((SCREEN_YSIZE / 2) + 12) * SCREEN_XSIZE];
     int layerXPos           = layer->XPos >> 4;
     int ZBuffer             = layerZPos >> 4;
-    for (int i = 4; i < 112; ++i) {
+    for (int i = 4; i < ((SCREEN_YSIZE / 2) - 8); ++i) {
         if (!(i & 1)) {
             activePalette   = fullPalette[*linePtr];
             activePalette32 = fullPalette32[*linePtr];
@@ -1347,8 +1666,11 @@ void Draw3DSkyLayer(int layerID)
     int layerYPos           = layer->YPos;
     int sinValue            = sinM[layer->angle & 0x1FF];
     int cosValue            = cosM[layer->angle & 0x1FF];
-    ushort *frameBufferPtr  = &Engine.frameBuffer[132 * SCREEN_XSIZE];
-    byte *linePtr           = &gfxLineBuffer[132];
+    ushort *frameBufferPtr  = &Engine.frameBuffer[((SCREEN_YSIZE / 2) + 12) * SCREEN_XSIZE];
+    ushort *bufferPtr       = Engine.frameBuffer2x;
+    if (!drawStageGFXHQ)
+        bufferPtr = &Engine.frameBuffer[((SCREEN_YSIZE / 2) + 12) * SCREEN_XSIZE];
+    byte *linePtr           = &gfxLineBuffer[((SCREEN_YSIZE / 2) + 12)];
     int layerXPos           = layer->XPos >> 4;
     int layerZPos           = layer->ZPos >> 4;
     for (int i = TILE_SIZE / 2; i < SCREEN_YSIZE - TILE_SIZE; ++i) {
@@ -1375,25 +1697,39 @@ void Draw3DSkyLayer(int layerID)
                     case FLIP_XY: tilePixel += 0xF - (tileX & 0xF) + SCREEN_YSIZE - TILE_SIZE * (tileY & 0xF); break;
                     default: break;
                 }
+
                 if (*tilePixel > 0)
-                    *frameBufferPtr = activePalette[*tilePixel];
+                    *bufferPtr = activePalette[*tilePixel];
+                else if (drawStageGFXHQ)
+                    *bufferPtr = *frameBufferPtr;
+            }
+            else if (drawStageGFXHQ) {
+                *bufferPtr = *frameBufferPtr;
             }
             if (lineBuffer & 1)
                 ++frameBufferPtr;
+            if (drawStageGFXHQ) {
+                bufferPtr++;
+            }
+            else if (lineBuffer & 1) {
+                ++bufferPtr;
+            }
             lineBuffer++;
             XPos += xBuffer;
             YPos += yBuffer;
         }
         if (!(i & 1))
             frameBufferPtr -= SCREEN_XSIZE;
+        if (!(i & 1) && !drawStageGFXHQ) {
+            bufferPtr -= SCREEN_XSIZE;
+        }
     }
 
-    //TODO(?): this is run only when the code above is drawn to a "HQ" framebuffer
-    //if (false) {
-    //    frameBufferPtr = &Engine.frameBuffer[132 * SCREEN_XSIZE];
-    //    int cnt    = 108 * SCREEN_XSIZE;
-    //    while (cnt--) *frameBufferPtr++ = 0xF81Fu; //Magenta
-    //}
+    if (drawStageGFXHQ) {
+        frameBufferPtr = &Engine.frameBuffer[((SCREEN_YSIZE / 2) + 12) * SCREEN_XSIZE];
+        int cnt        = ((SCREEN_YSIZE / 2) - 12) * SCREEN_XSIZE;
+        while (cnt--) *frameBufferPtr++ = 0xF81F; // Magenta
+    }
 #endif
 
 #if RETRO_RENDERTYPE == RETRO_HW_RENDER
@@ -1423,7 +1759,7 @@ void DrawRectangle(int XPos, int YPos, int width, int height, int R, int G, int 
         A = 0xFF;
     int pitch              = SCREEN_XSIZE - width;
     ushort *frameBufferPtr = &Engine.frameBuffer[XPos + SCREEN_XSIZE * YPos];
-    ushort clr             = (B >> 3) | 32 * (G >> 2) | ((ushort)(R >> 3) << 11);
+    ushort clr             = RGB888_TO_RGB565(R, G, B);
     if (A == 0xFF) {
         int h = height;
         while (h--) {
@@ -1455,6 +1791,47 @@ void DrawRectangle(int XPos, int YPos, int width, int height, int R, int G, int 
 #if RETRO_RENDERTYPE == RETRO_HW_RENDER
     // TODO: this
 #endif
+}
+
+void SetFadeHQ(int R, int G, int B, int A)
+{
+#if RETRO_RENDERTYPE == RETRO_SW_RENDER
+    if (A <= 0)
+        return;
+    if (A > 0xFF)
+        A = 0xFF;
+    int pitch              = SCREEN_XSIZE * 2;
+    ushort *frameBufferPtr = Engine.frameBuffer2x;
+    ushort clr             = RGB888_TO_RGB565(R, G, B);
+    if (A == 0xFF) {
+        int h = SCREEN_YSIZE;
+        while (h--) {
+            int w = pitch;
+            while (w--) {
+                *frameBufferPtr = clr;
+                ++frameBufferPtr;
+            }
+        }
+    }
+    else {
+        int h = SCREEN_YSIZE;
+        while (h--) {
+            int w = pitch;
+            while (w--) {
+                short *blendPtrB = &blendLookupTable[BLENDTABLE_XSIZE * (0xFF - A)];
+                short *blendPtrA = &blendLookupTable[BLENDTABLE_XSIZE * A];
+                *frameBufferPtr  = (blendPtrB[*frameBufferPtr & (BLENDTABLE_XSIZE - 1)] + blendPtrA[((byte)(B >> 3) | (byte)(32 * (G >> 2))) & 0x1F])
+                                  | ((blendPtrB[(*frameBufferPtr & 0x7E0) >> 6] + blendPtrA[(clr & 0x7E0) >> 6]) << 6)
+                                  | ((blendPtrB[(*frameBufferPtr & 0xF800) >> 11] + blendPtrA[(clr & 0xF800) >> 11]) << 11);
+                ++frameBufferPtr;
+            }
+        }
+    }
+#endif
+
+#if RETRO_RENDERTYPE == RETRO_HW_RENDER
+    // TODO: this
+#endif 
 }
 
 void DrawTintRectangle(int XPos, int YPos, int width, int height)
@@ -2483,7 +2860,7 @@ void DrawObjectAnimation(void *objScr, void *ent, int XPos, int YPos)
                 DrawSpriteRotated(entity->direction, XPos, YPos, -frame->pivotX, -frame->pivotY, frame->sprX, frame->sprY, frame->width,
                                   frame->height, 0x200 - ((532 - entity->rotation) >> 6 << 6), frame->sheetID);
             else
-                DrawSpriteRotated(entity->direction, XPos, YPos, -frame->pivotX, -frame->pivotY, frame->sprX, frame->sprX, frame->width,
+                DrawSpriteRotated(entity->direction, XPos, YPos, -frame->pivotX, -frame->pivotY, frame->sprX, frame->sprY, frame->width,
                                   frame->height, (entity->rotation + 20) >> 6 << 6, frame->sheetID);
             break;
         case ROTFLAG_STATICFRAMES:
@@ -2620,7 +2997,7 @@ void DrawFace(void *v, uint colour)
     processScanEdge(&verts[vertexC], &verts[vertexD]);
     processScanEdge(&verts[vertexB], &verts[vertexD]);
 
-    ushort colour16 = ((signed int)(byte)colour >> 3) | 32 * (((colour >> 8) & 0xFF) >> 2) | ((ushort)(((colour >> 16) & 0xFF) >> 3) << 11);
+    ushort colour16 = RGB888_TO_RGB565(((colour >> 16) & 0xFF), ((colour >> 8) & 0xFF), ((colour >> 0) & 0xFF));
 
     ushort *frameBufferPtr = &Engine.frameBuffer[SCREEN_XSIZE * faceTop];
     if (alpha == 255) {
@@ -2819,17 +3196,13 @@ void DrawBitmapText(void *menu, int XPos, int YPos, int scale, int spacing, int 
         rowCount = tMenu->rowCount - rowStart;
 
     while (rowCount > 0) {
-        int charID = 0;
-        int i      = tMenu->entrySize[rowStart];
         int X      = XPos << 9;
-        while (i > 0) {
-            char c               = tMenu->textData[tMenu->entryStart[rowStart] + charID];
+        for (int i = 0; i < tMenu->entrySize[rowStart]; ++i) {
+            ushort c             = tMenu->textData[tMenu->entryStart[rowStart] + i];
             FontCharacter *fChar = &fontCharacterList[c];
-            DrawSpriteScaled(FLIP_NONE, X >> 5, Y >> 5, -fChar->pivotX, -fChar->pivotY, scale, scale, fChar->width, fChar->height,
-                                      fChar->srcX, fChar->srcY, textMenuSurfaceNo);
+            DrawSpriteScaled(FLIP_NONE, X >> 9, Y >> 9, -fChar->pivotX, -fChar->pivotY, scale, scale, fChar->width, fChar->height, fChar->srcX,
+                             fChar->srcY, textMenuSurfaceNo);
             X += fChar->xAdvance * scale;
-            charID++;
-            i--;
         }
         Y += spacing * scale;
         rowStart++;

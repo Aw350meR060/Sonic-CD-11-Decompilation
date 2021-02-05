@@ -2,7 +2,7 @@
 
 void initDevMenu()
 {
-    // DrawStageGFXHQ = 0;
+    drawStageGFXHQ = false;
     xScrollOffset = 0;
     yScrollOffset = 0;
     StopMusic();
@@ -45,6 +45,7 @@ void initDevMenu()
 }
 void initErrorMessage()
 {
+    drawStageGFXHQ = false;
     xScrollOffset = 0;
     yScrollOffset = 0;
     StopMusic();
@@ -231,9 +232,10 @@ void processStageSelect()
                 else
                     gameMenu[1].visibleRowCount = 0;
 
-                gameMenu[0].alignment      = 2;
-                gameMenu[0].selectionCount = 1;
-                gameMenu[1].timer          = 0;
+                gameMenu[0].alignment        = 2;
+                gameMenu[0].selectionCount   = 1;
+                gameMenu[1].timer            = 0;
+                gameMenu[1].visibleRowOffset = 0;
                 stageMode                  = DEVMENU_STAGESEL;
             }
             else if (keyPress.B) {

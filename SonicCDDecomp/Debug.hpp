@@ -14,13 +14,13 @@ inline void printLog(const char *msg, ...)
         sprintf(buffer, "%s\n", buffer);
 
         char pathBuffer[0x100];
-#if RETRO_PLATFORM == RETRO_OSX
+#if RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_UWP
         if (!usingCWD)
             sprintf(pathBuffer, "%s/log.txt", getResourcesPath());
         else
             sprintf(pathBuffer, "log.txt");
 #else
-        sprintf(pathBuffer, "log.txt");
+        sprintf(pathBuffer, BASE_PATH"log.txt");
 #endif
         FileIO *file = fOpen(pathBuffer, "a");
         if (file) {

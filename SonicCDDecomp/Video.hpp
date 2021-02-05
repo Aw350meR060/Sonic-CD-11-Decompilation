@@ -1,10 +1,13 @@
 #ifndef VIDEO_H
 #define VIDEO_H
 
+#include <theoraplay.h>
+
 extern int currentVideoFrame;
 extern int videoFrameCount;
 extern int videoWidth;
 extern int videoHeight;
+extern float videoAR;
 
 extern THEORAPLAY_Decoder *videoDecoder;
 extern const THEORAPLAY_VideoFrame *videoVidData;
@@ -20,6 +23,7 @@ extern int vidBaseticks;
 void PlayVideoFile(char *filepath);
 void UpdateVideoFrame();
 int ProcessVideo();
+void StopVideoPlayback();
 
 void SetupVideoBuffer(int width, int height);
 void CloseVideoBuffer();

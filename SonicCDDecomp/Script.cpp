@@ -928,7 +928,7 @@ void ConvertIfWhileStatement(char *text)
                 text[strPos] = ',';
                 StrCopy(dest, functions[compareOp + FUNC_WEQUAL].name);
                 StrAdd(dest, "(");
-                AppendIntegerToSting(dest, jumpTableDataPos - jumpTableDataOffset);
+                AppendIntegerToString(dest, jumpTableDataPos - jumpTableDataOffset);
                 StrAdd(dest, ",");
                 destStrPos = StrLength(dest);
                 for (int i = 5; text[i]; ++i) {
@@ -956,7 +956,7 @@ void ConvertIfWhileStatement(char *text)
             text[strPos] = ',';
             StrCopy(dest, functions[compareOp + FUNC_IFEQUAL].name);
             StrAdd(dest, "(");
-            AppendIntegerToSting(dest, jumpTableDataPos - jumpTableDataOffset);
+            AppendIntegerToString(dest, jumpTableDataPos - jumpTableDataOffset);
             StrAdd(dest, ",");
             destStrPos = StrLength(dest);
             for (int i = 2; text[i]; ++i) {
@@ -979,7 +979,7 @@ bool ConvertSwitchStatement(char *text)
     char switchText[260];
     StrCopy(switchText, "switch");
     StrAdd(switchText, "(");
-    AppendIntegerToSting(switchText, jumpTableDataPos - jumpTableDataOffset);
+    AppendIntegerToString(switchText, jumpTableDataPos - jumpTableDataOffset);
     StrAdd(switchText, ",");
     int pos = StrLength(switchText);
     for (int i = 6; text[i]; ++i) {
@@ -1091,24 +1091,24 @@ void ConvertFunctionText(char *text)
                 if (StrComp(funcName, globalVariableNames[v])) {
                     StrCopy(funcName, "Global");
                     strBuffer[0] = 0;
-                    AppendIntegerToSting(strBuffer, v);
+                    AppendIntegerToString(strBuffer, v);
                 }
             }
             // Eg: TempValue0 = Function1
             for (int f = 0; f < scriptFunctionCount; ++f) {
                 if (StrComp(funcName, scriptFunctionNames[f])) {
                     funcName[0] = 0;
-                    AppendIntegerToSting(funcName, f);
+                    AppendIntegerToString(funcName, f);
                 }
             }
             // Eg: TempValue0 = TypeName[PlayerObject]
             if (StrComp(funcName, "TypeName")) {
                 funcName[0] = 0;
-                AppendIntegerToSting(funcName, 0);
+                AppendIntegerToString(funcName, 0);
                 for (int o = 0; o < OBJECT_COUNT; ++o) {
                     if (StrComp(strBuffer, typeNames[o])) {
                         funcName[0] = 0;
-                        AppendIntegerToSting(funcName, o);
+                        AppendIntegerToString(funcName, o);
                     }
                 }
             }
@@ -1196,7 +1196,7 @@ void ConvertFunctionText(char *text)
                     AddTextMenuEntry(&gameMenu[0], " ");
                     AddTextMenuEntry(&gameMenu[0], "LINE NUMBER");
                     funcName[0] = 0;
-                    AppendIntegerToSting(funcName, lineID);
+                    AppendIntegerToString(funcName, lineID);
                     AddTextMenuEntry(&gameMenu[0], funcName);
                     Engine.gameMode = ENGINE_SCRIPTERROR;
                     value           = 0;
@@ -1292,7 +1292,7 @@ bool ReadSwitchCase(char *text)
     }
     return false;
 }
-void AppendIntegerToSting(char *text, int value)
+void AppendIntegerToString(char *text, int value)
 {
     int textPos = 0;
     while (true) {
@@ -1671,7 +1671,7 @@ void LoadBytecode(int stageListID, int scriptID)
 
     FileInfo info;
     if (LoadFile(scriptPath, &info)) {
-        int fileBuffer = 0;
+        byte fileBuffer = 0;
         int *scrData   = &scriptData[scriptCodePos];
         FileRead(&fileBuffer, 1);
         int scriptDataCount = fileBuffer;
@@ -1893,6 +1893,7 @@ void ClearScriptData()
     aliasCount = COMMONALIAS_COUNT;
     lineID = 0;
 
+    ClearGraphicsData();
     ClearAnimationData();
 
     for (int p = 0; p < PLAYER_COUNT; ++p) {
@@ -2097,7 +2098,7 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptSub)
                         }
                         else {
                             int pos               = objectEntityList[arrayVal].YPos >> 16;
-                            scriptEng.operands[i] = pos <= yScrollOffset - 256 || pos >= yScrollOffset + 496;
+                            scriptEng.operands[i] = pos <= yScrollOffset - OBJECT_BORDER_Y1 || pos >= yScrollOffset + OBJECT_BORDER_Y2;
                         }
                         break;
                     }
@@ -2259,8 +2260,11 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptSub)
                     }
                     case VAR_PLAYERCOLLISIONLEFT: {
                         AnimationFile *animFile = playerList[activePlayer].animationFile;
+                        Player *plr             = &playerList[activePlayer];
                         if (animFile) {
-                            int h = animFrames[animationList[animFile->aniListOffset].frameListOffset].hitboxID;
+                            int h = animFrames[animationList[animFile->aniListOffset + plr->boundEntity->animation].frameListOffset
+                                               + plr->boundEntity->frame]
+                                        .hitboxID;
 
                             scriptEng.operands[i] = hitboxList[animFile->hitboxListOffset + h].left[0];
                         }
@@ -2271,8 +2275,11 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptSub)
                     }
                     case VAR_PLAYERCOLLISIONTOP: {
                         AnimationFile *animFile = playerList[activePlayer].animationFile;
+                        Player *plr             = &playerList[activePlayer];
                         if (animFile) {
-                            int h = animFrames[animationList[animFile->aniListOffset].frameListOffset].hitboxID;
+                            int h = animFrames[animationList[animFile->aniListOffset + plr->boundEntity->animation].frameListOffset
+                                               + plr->boundEntity->frame]
+                                        .hitboxID;
 
                             scriptEng.operands[i] = hitboxList[animFile->hitboxListOffset + h].top[0];
                         }
@@ -2283,8 +2290,11 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptSub)
                     }
                     case VAR_PLAYERCOLLISIONRIGHT: {
                         AnimationFile *animFile = playerList[activePlayer].animationFile;
+                        Player *plr             = &playerList[activePlayer];
                         if (animFile) {
-                            int h = animFrames[animationList[animFile->aniListOffset].frameListOffset].hitboxID;
+                            int h = animFrames[animationList[animFile->aniListOffset + plr->boundEntity->animation].frameListOffset
+                                               + plr->boundEntity->frame]
+                                        .hitboxID;
 
                             scriptEng.operands[i] = hitboxList[animFile->hitboxListOffset + h].right[0];
                         }
@@ -2295,8 +2305,11 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptSub)
                     }
                     case VAR_PLAYERCOLLISIONBOTTOM: {
                         AnimationFile *animFile = playerList[activePlayer].animationFile;
+                        Player *plr             = &playerList[activePlayer];
                         if (animFile) {
-                            int h = animFrames[animationList[animFile->aniListOffset].frameListOffset].hitboxID;
+                            int h = animFrames[animationList[animFile->aniListOffset + plr->boundEntity->animation].frameListOffset
+                                               + plr->boundEntity->frame]
+                                        .hitboxID;
 
                             scriptEng.operands[i] = hitboxList[animFile->hitboxListOffset + h].bottom[0];
                         }
@@ -2444,7 +2457,7 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptSub)
                         }
                         else {
                             int pos               = playerList[activePlayer].YPos >> 16;
-                            scriptEng.operands[i] = pos <= yScrollOffset - 256 || pos >= yScrollOffset + 496;
+                            scriptEng.operands[i] = pos <= yScrollOffset - OBJECT_BORDER_Y1 || pos >= yScrollOffset + OBJECT_BORDER_Y2;
                         }
                         break;
                     }
@@ -2550,7 +2563,7 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptSub)
                     case VAR_SAVERAM: scriptEng.operands[i] = saveRAM[arrayVal]; break;
                     case VAR_ENGINELANGUAGE: scriptEng.operands[i] = Engine.language; break;
                     case VAR_OBJECTSPRITESHEET: {
-                        scriptEng.operands[i] = objectScriptList[objectEntityList[objectLoop].type].spriteSheetID;
+                        scriptEng.operands[i] = objectScriptList[objectEntityList[arrayVal].type].spriteSheetID;
                         break;
                     }
                     case VAR_ENGINEONLINEACTIVE: scriptEng.operands[i] = Engine.onlineActive; break;
@@ -2558,7 +2571,7 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptSub)
                     case VAR_ENGINEFRAMESKIPSETTING: scriptEng.operands[i] = Engine.frameSkipSetting; break;
                     case VAR_ENGINESFXVOLUME: scriptEng.operands[i] = sfxVolume; break;
                     case VAR_ENGINEBGMVOLUME: scriptEng.operands[i] = bgmVolume; break;
-                    case VAR_ENGINEPLATFORMID: scriptEng.operands[i] = RETRO_PLATFORM; break;
+                    case VAR_ENGINEPLATFORMID: scriptEng.operands[i] = RETRO_GAMEPLATFORMID; break;
                     case VAR_ENGINETRIALMODE: scriptEng.operands[i] = Engine.trialMode; break;
                     case VAR_KEYPRESSANYSTART: scriptEng.operands[i] = anyPress; break;
 #if RETRO_USE_HAPTICS
@@ -3480,8 +3493,8 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptSub)
                 opcodeSize = 0;
                 switch (scriptEng.operands[0]) {
                     case MAT_WORLD: matrixTranslateXYZ(&matWorld, scriptEng.operands[1], scriptEng.operands[2], scriptEng.operands[3]); break;
-                    case MAT_TEMP: matrixTranslateXYZ(&matView, scriptEng.operands[1], scriptEng.operands[2], scriptEng.operands[3]); break;
-                    case MAT_VIEW: matrixTranslateXYZ(&matTemp, scriptEng.operands[1], scriptEng.operands[2], scriptEng.operands[3]); break;
+                    case MAT_VIEW: matrixTranslateXYZ(&matView, scriptEng.operands[1], scriptEng.operands[2], scriptEng.operands[3]); break;
+                    case MAT_TEMP: matrixTranslateXYZ(&matTemp, scriptEng.operands[1], scriptEng.operands[2], scriptEng.operands[3]); break;
                 }
                 break;
             case FUNC_MATRIXSCALEXYZ:
@@ -4313,7 +4326,7 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptSub)
                     case VAR_SAVERAM: saveRAM[arrayVal] = scriptEng.operands[i]; break;
                     case VAR_ENGINELANGUAGE: Engine.language = scriptEng.operands[i]; break;
                     case VAR_OBJECTSPRITESHEET: {
-                        scriptInfo->spriteSheetID = scriptEng.operands[i];
+                        objectScriptList[objectEntityList[arrayVal].type].spriteSheetID = scriptEng.operands[i];
                         break;
                     }
                     case VAR_ENGINEONLINEACTIVE: break;

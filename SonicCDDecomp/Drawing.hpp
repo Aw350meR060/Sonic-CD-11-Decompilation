@@ -3,7 +3,7 @@
 
 #define SPRITESHEETS_MAX (16)
 #define SURFACE_MAX      (24)
-#define GFXDATA_MAX      (0x200000)
+#define GFXDATA_MAX      (0x400000)
 
 #define BLENDTABLE_YSIZE (0x100)
 #define BLENDTABLE_XSIZE (0x20)
@@ -39,6 +39,9 @@ extern short tintLookupTable[TINTTABLE_SIZE];
 extern int SCREEN_XSIZE;
 extern int SCREEN_CENTERX;
 
+extern float videoAR;
+extern bool videoPlaying;
+
 extern DrawListEntry drawListEntries[DRAWLAYER_COUNT];
 
 extern int gfxDataPosition;
@@ -59,6 +62,7 @@ inline void ClearGraphicsData()
 void ClearScreen(byte index);
 
 void SetScreenSize(int width, int height);
+void CopyFrameOverlay2x();
 
 // Layer Drawing
 void DrawObjectList(int layer);
@@ -72,6 +76,7 @@ void Draw3DSkyLayer(int layerID);
 
 // Shape Drawing
 void DrawRectangle(int XPos, int YPos, int width, int height, int R, int G, int B, int A);
+void SetFadeHQ(int R, int G, int B, int A);
 void DrawTintRectangle(int XPos, int YPos, int width, int height);
 void DrawScaledTintMask(int direction, int XPos, int YPos, int pivotX, int pivotY, int scaleX,
                         int scaleY, int width, int height, int sprX, int sprY, int sheetID);
