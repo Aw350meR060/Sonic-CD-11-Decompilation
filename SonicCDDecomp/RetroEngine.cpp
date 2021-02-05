@@ -43,8 +43,10 @@ bool processEvents()
                     case SDL_WINDOWEVENT_CLOSE: Engine.gameMode = ENGINE_EXITGAME; return false;
                 }
                 break;
+            #if RETRO_PLATFORM != RETRO_SWITCH
             case SDL_CONTROLLERDEVICEADDED: controllerInit(SDL_NumJoysticks() - 1); break;
             case SDL_CONTROLLERDEVICEREMOVED: controllerClose(SDL_NumJoysticks() - 1); break;
+            #endif
             case SDL_WINDOWEVENT_CLOSE:
                 if (Engine.window) {
                     SDL_DestroyWindow(Engine.window);
@@ -241,14 +243,6 @@ bool processEvents()
 #endif
                 break;
             case SDL_QUIT: Engine.gameMode = ENGINE_EXITGAME; return false;
-            case SDL_CONTROLLERBUTTONDOWN:
-            case SDL_CONTROLLERBUTTONUP:
-                ProcessButton(
-                    Engine.sdlEvents.cbutton.which,
-                    Engine.sdlEvents.cbutton.button,
-                    Engine.sdlEvents.cbutton.state
-                );
-                break;
         }
     }
 #endif
@@ -283,10 +277,9 @@ void RetroEngine::Init()
     if (LoadGameConfig("Data/Game/GameConfig.bin")) {
         if (InitRenderDevice()) {
             if (InitAudioPlayback()) {
-                SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER);
-                SDL_GameControllerEventState(SDL_ENABLE);
-                // SDL_GameControllerAddMappingsFromFile("./gamecontrollerdb.txt");
+                #if RETRO_PLATFORM == RETRO_SWITCH
                 controllerInit(0);
+                #endif
                 InitFirstStage();
                 ClearScriptData();
                 initialised = true;

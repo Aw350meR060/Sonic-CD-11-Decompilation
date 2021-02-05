@@ -12,7 +12,12 @@ int touchID[8];
 int touches = 0;
 
 InputButton inputDevice[INPUT_MAX];
+
+#if RETRO_PLATFORM == RETRO_SWITCH
+int inputType = 1;
+#else
 int inputType = 0;
+#endif
 
 int LSTICK_DEADZONE   = 20000;
 int RSTICK_DEADZONE   = 20000;
@@ -76,38 +81,6 @@ bool getControllerButton(byte buttonID)
     return false;
 }
 #endif
-
-void ProcessButton(byte controllerID, byte buttonID, byte pressed) {
-    // printLog("Button %i %i %i", controllerID, buttonID, pressed);
-
-    // if (SDL_GameControllerFromInstanceID(controllerID) != controller) return;
-
-    inputType = 1;
-
-    for (int i = 0; i < 8; i++) {
-        if (inputDevice[i].contMappings != buttonID) continue;
-        if (pressed) {
-            inputDevice[i].setHeld();
-        } else if (inputDevice[i].hold)
-            inputDevice[i].setReleased();
-        break;
-    }
-
-    anyPress = false;
-    inputDevice[8].setReleased();
-
-    for (int i = 0; i < 8; i++) {
-        if (!inputDevice[i].hold) continue;
-        anyPress = true;
-        inputDevice[8].setHeld();
-        break;
-    }
-}
-
-void ProcessInputPost() {
-    for (int i = 0; i < 8; i++)
-        inputDevice[i].press = false;
-}
 
 void ProcessInput()
 {
