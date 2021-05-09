@@ -1,4 +1,4 @@
-# Sonic CD (2011) Decompilation
+![](header.png?raw=true)
 
 [![Nintendo Switch](https://github.com/heyjoeway/Sonic-CD-11-Decompilation/actions/workflows/switch.yml/badge.svg)](https://github.com/heyjoeway/Sonic-CD-11-Decompilation/actions/workflows/switch.yml)
 
@@ -52,22 +52,20 @@ Sections below are lifted directly from the source repository.
 * If `devMenu` is enabled in the config, pressing `F10` will activate a palette overlay that shows the game's 8 internal palettes in real time
 * If `useSteamDir` is set in the config, and the user is on Windows, the game will try to load savedata from Steam's `userdata` directory (where the Steam version saves to)
 
-# TODOs:
-* create a `cmakelists.txt` file for windows compiling so builds can be added automatically via git actions
-
 # How to build:
 ## Windows:
 * Clone the repo, then follow the instructions in the [depencencies readme for Windows](./dependencies/windows/dependencies.txt) to setup dependencies, then build via the Visual Studio solution
 * or grab a prebuilt executable from the releases section
 
 ## Windows UWP (Phone, Xbox, etc.):
-* Clone the repo, then follow the instructions in the [depencencies readme for Windows](./dependencies/windows/dependencies.txt) and [depencencies readme for UWP](./dependencies/win-uwp/dependencies.txt) to setup dependencies, copy your `Data.rsdk` and `videos` folder into `SonicCDDecompUWP`, then build and deploy via the UWP Visual Studio solution
+* Clone the repo, then follow the instructions in the [depencencies readme for Windows](./dependencies/windows/dependencies.txt) and [depencencies readme for UWP](./dependencies/win-uwp/dependencies.txt) to setup dependencies, then build and deploy via the UWP Visual Studio solution.
+* After install copy your `Data.rsdk` and `videos` folder into the apps localstate folder
 
 ## Windows via MSYS2 (64-bit Only):
 
 * Download the newest version of the MSYS2 installer from [here](https://www.msys2.org/) and install it.
 * Run the MINGW64 prompt (from the windows Start Menu/MSYS2 64-bit/MSYS2 MinGW 64-bit), when the program starts enter `pacman -Syuu` in the prompt and hit Enter. Press `Y` when it asks if you want to update packages. If it asks you to close the prompt, do so, then restart it and run the same command again. This updates the packages to their latest versions.
-* Now install the dependencies with the following command: `pacman -S make git mingw-w64-x86_64-gcc mingw-w64-x86_64-SDL2 mingw-w64-x86_64-libogg mingw-w64-x86_64-libvorbis mingw-w64-x86_64-libtheora`
+* Now install the dependencies with the following command: `pacman -S pkg-config make git mingw-w64-x86_64-gcc mingw-w64-x86_64-SDL2 mingw-w64-x86_64-libogg mingw-w64-x86_64-libvorbis mingw-w64-x86_64-libtheora`
 * Clone the repo with the following command: `git clone https://github.com/Rubberduckycooly/Sonic-CD-11-Decompilation.git`
 * Go into the repo you just cloned with `cd Sonic-CD-11-Decompilation`
 * Then run `make CXXFLAGS=-O2 CXX=x86_64-w64-mingw32-g++ STATIC=1 -j5` (-j switch is optional but will make building faster, it's based on the number of cores you have +1 so 8 cores wold be -j9)
@@ -122,10 +120,8 @@ A: No. Mania is tons bigger and requires that I'd decompile not only how the (fa
 * [Xeeynamo](https://github.com/Xeeynamo): For creating the RSDK Animation editor & an early version of the script unpacker, both of which got me into RSDK modding
 * [Sappharad](https://github.com/Sappharad): For making a decompilation of the Windows Phone 7 version of Sonic CD (found [here](https://github.com/Sappharad/rvm_soniccd)) which gave me the idea & motivation to decompile the PC/IOS/Android versions
 * [SuperSonic16](https://github.com/TheSuperSonic16): for creating & adding some stuff to the Sonic CD mod loader that I asked for
+* The Weigman for creating the header you see up here along with similar assets
 * Everyone in the [Retro Engine Modding Server](https://dc.railgun.works/retroengine): for being supportive of me and for giving me a place to show off these things that I've found
 
-# Background:
-In 2018 I started researching Christan Whitehead's 'Retro Engine' as a side project since I was bored, I started with Sonic CD (RSDKv3) since it was the most well known version that hadn't had much support, since at that time Sonic Mania's (RSDKv5) modding scene was already thriving, and eventually I expanded my range to Retro-Sonic (Retro-Sonic Engine), Sonic Nexus (RSDKv1) & Sonic 1/2 (RSDKv4), since then I have worked during spare moments to document and reverse all that I can of all versions of RSDK as it was just interesting to see how things worked under the hood or how features evolved and changed over time. Fast forward to 2020 and [Sappharad](https://github.com/Sappharad) shows me his decompilation of Sonic CD based on the Windows Phone 7 port since they'd seen my other github repositories relating to RSDK reversing. After seeing their decompilation I had the idea to start my own Sonic CD decompilation based on the PC port, with improvements and tweaks Android port, though I didn't have much time to get around to it, so the project was shelved until I had more time to work on it. in mid-December 2020, I remembered the Sonic CD decompilation that I started and finally had the time to work on it more, so after around 2 weeks of on/off working the decompilation was finally in a solid working state, though I continued tweaking it for another few weeks just to iron out all the glitches and bugs that I found. 
-
 # Contact:
-you can join the [Retro Engine Modding Discord Server](https://dc.railgun.works/retroengine) for any extra questions you may need to know about the decompilation or modding it
+Join the [Retro Engine Modding Discord Server](https://dc.railgun.works/retroengine) for any extra questions you may need to know about the decompilation or modding it.

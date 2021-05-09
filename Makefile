@@ -77,34 +77,35 @@ ifeq ($(STATIC),1)
 	CFLAGS += -static
 endif
 
-INCLUDES  += 	-I./SonicCDDecomp \
+INCLUDES  += 	-I./RSDKv3 \
 				-I./dependencies/all/theoraplay
 
 INCLUDES += $(LIBS)
 
 # Main Sources
-SOURCES	+=	SonicCDDecomp/Animation \
-			SonicCDDecomp/Audio \
-			SonicCDDecomp/Collision \
-			SonicCDDecomp/Debug \
-			SonicCDDecomp/Drawing \
-			SonicCDDecomp/Ini \
-			SonicCDDecomp/Input \
-			SonicCDDecomp/main \
-			SonicCDDecomp/Math \
-			SonicCDDecomp/Object \
-			SonicCDDecomp/Palette \
-			SonicCDDecomp/Player \
-			SonicCDDecomp/Reader \
-			SonicCDDecomp/RetroEngine \
-			SonicCDDecomp/Scene \
-			SonicCDDecomp/Scene3D \
-			SonicCDDecomp/Script \
-			SonicCDDecomp/Sprite \
-			SonicCDDecomp/String \
-			SonicCDDecomp/Text \
-			SonicCDDecomp/Userdata \
-			SonicCDDecomp/Video
+SOURCES	+=	RSDKv3/Animation \
+			RSDKv3/Audio \
+			RSDKv3/Collision \
+			RSDKv3/Debug \
+			RSDKv3/Drawing \
+			RSDKv3/fcaseopen \
+			RSDKv3/Ini \
+			RSDKv3/Input \
+			RSDKv3/main \
+			RSDKv3/Math \
+			RSDKv3/Object \
+			RSDKv3/Palette \
+			RSDKv3/Player \
+			RSDKv3/Reader \
+			RSDKv3/RetroEngine \
+			RSDKv3/Scene \
+			RSDKv3/Scene3D \
+			RSDKv3/Script \
+			RSDKv3/Sprite \
+			RSDKv3/String \
+			RSDKv3/Text \
+			RSDKv3/Userdata \
+			RSDKv3/Video
 
 # Theoraplay sources
 SOURCES +=	dependencies/all/theoraplay/theoraplay
