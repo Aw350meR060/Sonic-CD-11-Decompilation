@@ -93,6 +93,7 @@ SOURCES	+=	RSDKv3/Animation \
 			RSDKv3/Input \
 			RSDKv3/main \
 			RSDKv3/Math \
+			RSDKv3/ModAPI \
 			RSDKv3/Object \
 			RSDKv3/Palette \
 			RSDKv3/Player \
