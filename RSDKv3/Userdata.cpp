@@ -1,10 +1,10 @@
 #include "RetroEngine.hpp"
 
-#if defined(__SWITCH__)
-    #include "filesystem.hpp"
-    #define STD_FILESYSTEM ghc::filesystem
-#else
-    #define STD_FILESYSTEM std::filesystem
+// Your guess is as good as mine
+#if RETRO_PLATFORM == RETRO_SWITCH
+long pathconf (const char *__path, int __name) {
+    return 0;
+}
 #endif
 
 #if RETRO_PLATFORM == RETRO_WIN && _MSC_VER
@@ -247,6 +247,7 @@ void InitUserdata()
         ini.SetBool("Window", "VSync", Engine.vsync = true);
         #else
         ini.SetBool("Window", "VSync", Engine.vsync = false);
+        #endif
         ini.SetInteger("Window", "ScalingMode", Engine.scalingMode = 0);
         ini.SetInteger("Window", "WindowScale", Engine.windowScale = 2);
         ini.SetInteger("Window", "ScreenWidth", SCREEN_XSIZE = DEFAULT_SCREEN_XSIZE);
@@ -364,12 +365,13 @@ void InitUserdata()
             Engine.startFullScreen = DEFAULT_FULLSCREEN;
         if (!ini.GetBool("Window", "Borderless", &Engine.borderless))
             Engine.borderless = false;
-        if (!ini.GetBool("Window", "VSync", &Engine.vsync))
+        if (!ini.GetBool("Window", "VSync", &Engine.vsync)) {
             #if RETRO_PLATFORM == RETRO_SWITCH
             Engine.vsync = true;
             #else
             Engine.vsync = false;
             #endif
+        }
         if (!ini.GetInteger("Window", "ScalingMode", &Engine.scalingMode))
             Engine.scalingMode = 0;
         if (!ini.GetInteger("Window", "WindowScale", &Engine.windowScale))

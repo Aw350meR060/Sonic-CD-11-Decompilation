@@ -10,7 +10,7 @@ PROFILE		?= 0
 STRIP		?= strip
 
 # -fsigned-char required to prevent hang in LoadStageCollisions
-CFLAGS		?= -fsigned-char
+CFLAGS		?= -fsigned-char -std=c++17
 
 # =============================================================================
 # Detect default platform if not explicitly specified
@@ -77,36 +77,40 @@ ifeq ($(STATIC),1)
 	CFLAGS += -static
 endif
 
-INCLUDES  += 	-I./RSDKv3 \
-				-I./dependencies/all/theoraplay
+INCLUDES  += \
+	-I./RSDKv3 \
+	-I./dependencies/all/theoraplay \
+    -I./dependencies/all/tinyxml2
 
 INCLUDES += $(LIBS)
 
 # Main Sources
-SOURCES	+=	RSDKv3/Animation \
-			RSDKv3/Audio \
-			RSDKv3/Collision \
-			RSDKv3/Debug \
-			RSDKv3/Drawing \
-			RSDKv3/fcaseopen \
-			RSDKv3/Ini \
-			RSDKv3/Input \
-			RSDKv3/main \
-			RSDKv3/Math \
-			RSDKv3/ModAPI \
-			RSDKv3/Object \
-			RSDKv3/Palette \
-			RSDKv3/Player \
-			RSDKv3/Reader \
-			RSDKv3/RetroEngine \
-			RSDKv3/Scene \
-			RSDKv3/Scene3D \
-			RSDKv3/Script \
-			RSDKv3/Sprite \
-			RSDKv3/String \
-			RSDKv3/Text \
-			RSDKv3/Userdata \
-			RSDKv3/Video
+SOURCES	+=	\
+	RSDKv3/Animation \
+	RSDKv3/Audio \
+	RSDKv3/Collision \
+	RSDKv3/Debug \
+	RSDKv3/Drawing \
+	RSDKv3/fcaseopen \
+	RSDKv3/Ini \
+	RSDKv3/Input \
+	RSDKv3/main \
+	RSDKv3/Math \
+	RSDKv3/ModAPI \
+	RSDKv3/Object \
+	RSDKv3/Palette \
+	RSDKv3/Player \
+	RSDKv3/Reader \
+	RSDKv3/RetroEngine \
+	RSDKv3/Scene \
+	RSDKv3/Scene3D \
+	RSDKv3/Script \
+	RSDKv3/Sprite \
+	RSDKv3/String \
+	RSDKv3/Text \
+	RSDKv3/Userdata \
+	RSDKv3/Video	\
+    dependencies/all/tinyxml2/tinyxml2
 
 # Theoraplay sources
 SOURCES +=	dependencies/all/theoraplay/theoraplay
